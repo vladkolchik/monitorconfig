@@ -1,0 +1,12 @@
+{
+  "name": "monitorconfig",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Compact brightness / contrast / volume control for external monitors over DDC/CI",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js --no-open",
+    "test": "node test/smoke.js"
+  }
+}
