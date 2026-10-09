@@ -1,3 +1,7 @@
 node_modules/
 .playwright-mcp/
 *.log
+bin/
+obj/
+.vs/
+dist/

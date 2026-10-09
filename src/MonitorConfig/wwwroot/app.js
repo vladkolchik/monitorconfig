@@ -284,7 +284,7 @@ window.addEventListener('keydown', e => {
   e.preventDefault();
 });
 
-// keep the local server alive while this window is open; pick up changes made by hotkeys / schedule
+// pick up changes made by hotkeys / schedule / the tray menu
 async function ping() {
   try {
     const r = await (await fetch('/api/ping')).json();
