@@ -12,9 +12,11 @@
 
 ## Запуск
 
+Скачайте `MonitorConfig.exe` со страницы [Releases](https://github.com/vladkolchik/monitorconfig/releases/latest) и запустите — установка не нужна.
+
 Нужны [.NET 7 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/7.0) (x64) и WebView2 Runtime — в Windows 10/11 он обычно уже установлен.
 
-Сборка (нужен .NET 7 SDK):
+Сборка из исходников (нужен .NET 7 SDK):
 
 ```
 git clone https://github.com/vladkolchik/monitorconfig
