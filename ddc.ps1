@@ -1,6 +1,7 @@
 # Long-lived DDC/CI worker. Reads one command per line from stdin, writes one JSON line to stdout.
 #   list                 -> enumerate monitors with brightness / contrast / volume
 #   set <id> <vcp> <val> -> write a VCP feature (vcp as decimal)
+#   osd <percent>        -> flash the brightness plate;  osdstate -> {"visible":bool}
 #   hotkeys on|off       -> register global hotkeys; presses arrive as {"hotkey":1|2} lines
 
 $code = @'
@@ -9,6 +10,9 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Windows.Forms;
 
 public static class Ddc {
   [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
@@ -140,9 +144,149 @@ public static class Ddc {
     return sb.Append('"').ToString();
   }
 }
+
+// Brightness OSD: a small click-through, non-activating plate near the bottom of the primary
+// screen. Runs on its own STA thread with a WinForms message loop.
+public class Osd : Form {
+  [DllImport("user32.dll")] static extern bool SetProcessDPIAware();
+  [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h, int cmd);
+  [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+
+  static Osd inst;
+  public static string Display(int percent) {
+    if (inst == null) {
+      var ready = new ManualResetEvent(false);
+      var t = new Thread(() => {
+        SetProcessDPIAware();
+        inst = new Osd();
+        var h = inst.Handle; // create the window on this thread
+        ready.Set();
+        Application.Run(new ApplicationContext());
+      });
+      t.SetApartmentState(ApartmentState.STA);
+      t.IsBackground = true;
+      t.Start();
+      ready.WaitOne();
+    }
+    inst.BeginInvoke(new Action(() => inst.Pop(percent)));
+    return "{\"ok\":true}";
+  }
+
+  public static string State() {
+    bool v = false;
+    if (inst != null) v = (bool)inst.Invoke(new Func<bool>(() => IsWindowVisible(inst.Handle) && inst.Opacity > 0));
+    return "{\"visible\":" + (v ? "true" : "false") + "}";
+  }
+
+  int value;
+  float s; // dpi scale
+  readonly System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer();
+  int ticksLeft;
+  Font small, big;
+
+  static readonly Color Bg = Color.FromArgb(29, 28, 25);
+  static readonly Color Ink = Color.FromArgb(236, 232, 224);
+  static readonly Color Muted = Color.FromArgb(141, 135, 124);
+  static readonly Color Track = Color.FromArgb(52, 50, 46);
+  static readonly Color Accent = Color.FromArgb(238, 164, 60);
+
+  Osd() {
+    Text = "MonitorConfigOSD";
+    FormBorderStyle = FormBorderStyle.None;
+    ShowInTaskbar = false;
+    TopMost = true;
+    StartPosition = FormStartPosition.Manual;
+    BackColor = Bg;
+    DoubleBuffered = true;
+    using (var g = CreateGraphics()) s = g.DpiX / 96f;
+    Size = new Size((int)(232 * s), (int)(60 * s));
+    small = new Font("Segoe UI", 9f);
+    big = new Font("Segoe UI Semibold", 13f);
+    using (var path = Rounded(new Rectangle(0, 0, Width, Height), (int)(10 * s))) Region = new Region(path);
+    timer.Interval = 30;
+    timer.Tick += (o, e) => {
+      if (--ticksLeft > 0) return;
+      Opacity -= 0.12;
+      if (Opacity <= 0.05) { timer.Stop(); Hide(); }
+    };
+  }
+
+  protected override bool ShowWithoutActivation { get { return true; } }
+  protected override CreateParams CreateParams {
+    get {
+      var cp = base.CreateParams;
+      cp.ExStyle |= 0x08000000 | 0x80 | 0x20 | 0x8; // NOACTIVATE | TOOLWINDOW | TRANSPARENT | TOPMOST
+      return cp;
+    }
+  }
+
+  void Pop(int percent) {
+    value = Math.Max(0, Math.Min(100, percent));
+    var wa = Screen.PrimaryScreen.WorkingArea;
+    Location = new Point(wa.Left + (wa.Width - Width) / 2, wa.Bottom - Height - (int)(72 * s));
+    Opacity = 0.97;
+    if (!Visible) Show();
+    // The worker is spawned hidden, and Windows applies that SW_HIDE to the process's first
+    // ShowWindow call — so show explicitly, without activating.
+    ShowWindow(Handle, 4); // SW_SHOWNOACTIVATE
+    Invalidate();
+    ticksLeft = 1100 / timer.Interval;
+    timer.Start();
+  }
+
+  protected override void OnPaint(PaintEventArgs e) {
+    var g = e.Graphics;
+    g.SmoothingMode = SmoothingMode.AntiAlias;
+    g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+    float pad = 16 * s;
+
+    // sun
+    float cx = pad + 9 * s, cy = Height / 2f, r = 4 * s;
+    using (var pen = new Pen(Accent, 1.6f * s)) {
+      pen.StartCap = pen.EndCap = LineCap.Round;
+      g.DrawEllipse(pen, cx - r, cy - r, r * 2, r * 2);
+      for (int i = 0; i < 8; i++) {
+        double a = i * Math.PI / 4;
+        g.DrawLine(pen, cx + (float)Math.Cos(a) * 6.8f * s, cy + (float)Math.Sin(a) * 6.8f * s,
+                        cx + (float)Math.Cos(a) * 8.6f * s, cy + (float)Math.Sin(a) * 8.6f * s);
+      }
+    }
+
+    // label + value
+    float left = pad + 30 * s, right = Width - pad;
+    using (var mb = new SolidBrush(Muted)) g.DrawString("\u042f\u0440\u043a\u043e\u0441\u0442\u044c", small, mb, left - 2 * s, 10 * s);
+    string v = value.ToString();
+    var vs = g.MeasureString(v, big);
+    using (var ib = new SolidBrush(Ink)) g.DrawString(v, big, ib, right - vs.Width + 3 * s, 6 * s);
+
+    // bar
+    float by = Height - 18 * s, bh = 4 * s, bw = right - left;
+    using (var tb = new SolidBrush(Track)) FillRounded(g, tb, left, by, bw, bh);
+    if (value > 0) using (var ab = new SolidBrush(Accent)) FillRounded(g, ab, left, by, Math.Max(bh, bw * value / 100f), bh);
+  }
+
+  static void FillRounded(Graphics g, Brush b, float x, float y, float w, float h) {
+    using (var p = new GraphicsPath()) {
+      p.AddArc(x, y, h, h, 90, 180);
+      p.AddArc(x + w - h, y, h, h, 270, 180);
+      p.CloseFigure();
+      g.FillPath(b, p);
+    }
+  }
+
+  static GraphicsPath Rounded(Rectangle rc, int d) {
+    var p = new GraphicsPath();
+    p.AddArc(rc.X, rc.Y, d, d, 180, 90);
+    p.AddArc(rc.Right - d, rc.Y, d, d, 270, 90);
+    p.AddArc(rc.Right - d, rc.Bottom - d, d, d, 0, 90);
+    p.AddArc(rc.X, rc.Bottom - d, d, d, 90, 90);
+    p.CloseFigure();
+    return p;
+  }
+}
 '@
 
-Add-Type -TypeDefinition $code
+Add-Type -TypeDefinition $code -ReferencedAssemblies System.Windows.Forms, System.Drawing
 [Ddc]::Emit('{"ready":true}')
 
 while ($null -ne ($line = [Console]::In.ReadLine())) {
@@ -151,6 +295,8 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
     switch ($p[0]) {
       'list' { $out = [Ddc]::List() }
       'set'  { $out = [Ddc]::Set([int]$p[1], [byte]$p[2], [uint32]$p[3]) }
+      'osd'  { $out = [Osd]::Display([int]$p[1]) }
+      'osdstate' { $out = [Osd]::State() }
       'hotkeys' { $out = if ($p[1] -eq 'on') { [Ddc]::HotkeysOn() } else { [Ddc]::HotkeysOff() } }
       default { $out = '{"error":"unknown command"}' }
     }

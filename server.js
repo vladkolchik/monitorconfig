@@ -137,7 +137,10 @@ async function setAllBrightness(percentFn) {
 function onHotkey(id) {
   const s = HOTKEY_STEP;
   // snap to the step grid so 23 → 30 / 20 rather than 33 / 13
-  setAllBrightness(p => id === 1 ? Math.floor(p / s) * s + s : Math.ceil(p / s) * s - s);
+  setAllBrightness(p => id === 1 ? Math.floor(p / s) * s + s : Math.ceil(p / s) * s - s).then(() => {
+    const m = monitors.find(x => x.primary && x.features.brightness) || monitors.find(x => x.features.brightness);
+    if (m) command(`osd ${Math.round(m.features.brightness.value / m.features.brightness.max * 100)}`);
+  });
 }
 
 async function applyHotkeys() {
@@ -257,6 +260,9 @@ const server = http.createServer(async (req, res) => {
   if (api === 'GET /api/ping') {
     lastPing = Date.now();
     return json(res, 200, { rev });
+  }
+  if (api === 'GET /api/osd') { // used by the smoke test
+    return json(res, 200, await command('osdstate'));
   }
   if (api === 'POST /api/quit') {
     json(res, 200, { ok: true });

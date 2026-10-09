@@ -74,8 +74,12 @@ const hhmm = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinute
     const rev0 = (await api('GET', '/api/ping')).body.rev;
     press(0x22); await sleep(700);
     check(await brightness() === 30, 'Ctrl+Alt+PgDn: 40 → 30');
-    press(0x21); await sleep(700);
+    press(0x21); await sleep(400);
+    check((await api('GET', '/api/osd')).body.visible === true, 'OSD plate shown after the hotkey');
+    await sleep(300);
     check(await brightness() === 40, 'Ctrl+Alt+PgUp: 30 → 40');
+    await sleep(1800);
+    check((await api('GET', '/api/osd')).body.visible === false, 'OSD plate hides by itself');
     check((await api('GET', '/api/ping')).body.rev > rev0, 'rev bumped so open windows refresh');
     await api('POST', '/api/settings', { hotkeys: false });
     press(0x22); await sleep(700);
