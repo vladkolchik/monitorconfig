@@ -122,6 +122,18 @@ sealed class MainForm : Form
         Close();
     }
 
+    protected override void OnResize(EventArgs e)
+    {
+        // Without a taskbar button a minimized window would park as a stub above the taskbar; hide it to the tray.
+        if (WindowState == FormWindowState.Minimized && !ShowInTaskbar)
+        {
+            Hide();
+            WindowState = FormWindowState.Normal;
+            return;
+        }
+        base.OnResize(e);
+    }
+
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
         // With automation on, the window just hides; the app keeps running in the tray.

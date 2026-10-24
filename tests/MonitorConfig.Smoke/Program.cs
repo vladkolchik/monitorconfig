@@ -133,6 +133,14 @@ static class Smoke
             }
             await Call("POST", "/api/settings", new { schedule = new { enabled = false, items = Array.Empty<object>() } });
 
+            Console.WriteLine("tray only");
+            Check(!c.BackgroundWanted, "nothing on: closing the window would exit");
+            Check((await Call("POST", "/api/settings", new { trayOnly = true })).body.GetProperty("trayOnly").GetBoolean(), "tray-only reported on");
+            Check(c.BackgroundWanted, "tray-only keeps the app running after the window closes");
+            Check(JsonDocument.Parse(File.ReadAllText(settingsPath)).RootElement.GetProperty("trayOnly").GetBoolean(), "tray-only persisted to disk");
+            await Call("POST", "/api/settings", new { trayOnly = false });
+            Check(!c.BackgroundWanted, "tray-only off");
+
             Console.WriteLine("autostart");
             await Call("POST", "/api/settings", new { autostart = true });
             using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run"))

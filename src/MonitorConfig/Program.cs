@@ -48,7 +48,7 @@ sealed class TrayApp : ApplicationContext
         controller = new Controller(Path.Combine(home, "settings.json"), new Autostart("MonitorConfig", Application.ExecutablePath));
         api = new Api(controller);
         controller.QuitRequested += () => ui.Post(_ => Quit(), null);
-        controller.Changed += () => ui.Post(_ => UpdateTooltip(), null);
+        controller.Changed += () => ui.Post(_ => { UpdateTooltip(); ApplyTaskbar(); }, null);
 
         var menu = new ContextMenuStrip();
         menu.Items.Add("Открыть", null, (_, _) => ShowWindow());
@@ -80,10 +80,17 @@ sealed class TrayApp : ApplicationContext
         {
             window = new MainForm(api, () => controller.BackgroundWanted, icon);
             window.FormClosed += (_, _) => { if (!controller.BackgroundWanted) Quit(); };
+            ApplyTaskbar();
         }
         window.Show();
         if (window.WindowState == FormWindowState.Minimized) window.WindowState = FormWindowState.Normal;
         window.Activate();
+    }
+
+    void ApplyTaskbar()
+    {
+        // no-op unless the value actually changes (the setter recreates the window handle)
+        if (window is { IsDisposed: false }) window.ShowInTaskbar = !controller.Settings.TrayOnly;
     }
 
     void UpdateTooltip()

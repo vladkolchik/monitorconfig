@@ -169,6 +169,7 @@ function activeSlot(items) {
 function renderSettings() {
   $('opt-autostart').checked = cfg.autostart;
   $('opt-hotkeys').checked = cfg.hotkeys;
+  $('opt-tray').checked = cfg.trayOnly;
   $('opt-schedule').checked = cfg.schedule.enabled;
   const hk = $('hk-desc');
   hk.classList.toggle('err', !!cfg.hotkeyError);
@@ -195,7 +196,7 @@ function renderSettings() {
   $('sched-add').disabled = items.length >= 12;
 
   const background = cfg.hotkeys || cfg.schedule.enabled;
-  $('bg-note').hidden = !background;
+  $('bg-note').hidden = !(background || cfg.trayOnly);
   $('auto-badge').hidden = !background;
 }
 
@@ -252,6 +253,7 @@ $('open-settings').addEventListener('click', () => showSettings(true));
 $('close-settings').addEventListener('click', () => showSettings(false));
 $('opt-autostart').addEventListener('change', e => saveSettings({ autostart: e.target.checked }));
 $('opt-hotkeys').addEventListener('change', e => saveSettings({ hotkeys: e.target.checked }));
+$('opt-tray').addEventListener('change', e => saveSettings({ trayOnly: e.target.checked }));
 $('opt-schedule').addEventListener('change', e => {
   cfg.schedule.enabled = e.target.checked;
   saveSchedule(true);

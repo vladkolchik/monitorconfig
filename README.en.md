@@ -45,9 +45,10 @@ Launching it again while it is already running just brings up its window.
 - **Hotkeys** — `Ctrl+Alt+PgUp` / `Ctrl+Alt+PgDn` change the brightness of all monitors by ±10 from any app. A plate with the level pops up at the bottom of the screen for a second; it doesn't take focus and lets clicks through.
 
   <img src="docs/osd.png" width="300" alt="Brightness plate">
+- **Tray only** — the window has no taskbar button and opens from the tray icon. Minimizing hides it to the tray.
 - **Schedule** — sets the brightness of all monitors automatically at the given times. When enabled, the level for the current time is applied right away.
 
-While the schedule or hotkeys are on, closing the window keeps the app in the tray: click the icon to open the window; the menu has brightness presets and Quit («Завершить»). You can also stop it with the Quit button on the automation screen. Without automation, closing the window exits the app.
+While the schedule, hotkeys or tray-only mode are on, closing the window keeps the app in the tray: click the icon to open the window; the menu has brightness presets and Quit («Завершить»). You can also stop it with the Quit button on the automation screen. Without automation, closing the window exits the app.
 
 Settings: `%APPDATA%\MonitorConfig\settings.json`.
 
@@ -77,7 +78,7 @@ Requests to the monitor go strictly one at a time, and fast slider movements col
 
 ```
 dotnet build MonitorConfig.sln
-dotnet run --project tests/MonitorConfig.Smoke            # API, monitor writes, hotkeys and plate, schedule, autostart, exe launch
+dotnet run --project tests/MonitorConfig.Smoke            # API, monitor writes, hotkeys and plate, schedule, tray-only mode, autostart, exe launch
 dotnet run --project tests/MonitorConfig.Smoke -- --full  # also waits up to ~70 s for a schedule slot to fire on its own
 ```
 

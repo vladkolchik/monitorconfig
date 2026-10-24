@@ -18,6 +18,7 @@ public sealed class Schedule
 public sealed class Settings
 {
     public bool Hotkeys { get; set; }
+    public bool TrayOnly { get; set; } // no taskbar button; the window opens from the tray icon
     public Schedule Schedule { get; set; } = new()
     {
         Items =

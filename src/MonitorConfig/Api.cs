@@ -18,7 +18,7 @@ public sealed class Api
     }
 
     sealed class SetBody { public int? Id { get; set; } public string? Control { get; set; } public double? Value { get; set; } }
-    sealed class SettingsBody { public bool? Autostart { get; set; } public bool? Hotkeys { get; set; } public Schedule? Schedule { get; set; } }
+    sealed class SettingsBody { public bool? Autostart { get; set; } public bool? Hotkeys { get; set; } public bool? TrayOnly { get; set; } public Schedule? Schedule { get; set; } }
 
     static Response Ok(object body) => new(200, body);
     static Response Bad(string error) => new(400, new { ok = false, error });
@@ -48,7 +48,7 @@ public sealed class Api
                 var b = Parse<SettingsBody>(body);
                 if (b == null) return Bad("bad request");
                 if (b.Schedule != null && !Controller.ValidSchedule(b.Schedule)) return Bad("bad schedule");
-                await c.UpdateSettings(b.Autostart, b.Hotkeys, b.Schedule);
+                await c.UpdateSettings(b.Autostart, b.Hotkeys, b.TrayOnly, b.Schedule);
                 return Ok(c.PublicSettings());
             }
 

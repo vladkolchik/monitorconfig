@@ -47,7 +47,7 @@ public sealed partial class Controller : IDisposable
         scheduleTimer.Change(0, 10_000);
     }
 
-    public bool BackgroundWanted => Settings.Hotkeys || Settings.Schedule.Enabled;
+    public bool BackgroundWanted => Settings.Hotkeys || Settings.Schedule.Enabled || Settings.TrayOnly;
 
     public void RequestQuit() => QuitRequested?.Invoke();
 
@@ -160,6 +160,7 @@ public sealed partial class Controller : IDisposable
         autostart = Autostart.Enabled,
         hotkeys = Settings.Hotkeys,
         hotkeyError = HotkeyError,
+        trayOnly = Settings.TrayOnly,
         schedule = Settings.Schedule,
     };
 
@@ -169,10 +170,11 @@ public sealed partial class Controller : IDisposable
     public static bool ValidSchedule(Schedule? s) =>
         s != null && s.Items.Count <= 12 && s.Items.All(i => TimeRx().IsMatch(i.Time) && i.Value is >= 0 and <= 100);
 
-    public async Task UpdateSettings(bool? autostart, bool? hotkeysOn, Schedule? schedule)
+    public async Task UpdateSettings(bool? autostart, bool? hotkeysOn, bool? trayOnly, Schedule? schedule)
     {
         if (autostart is bool a) Autostart.Enabled = a;
         if (hotkeysOn is bool h) { Settings.Hotkeys = h; ApplyHotkeys(); }
+        if (trayOnly is bool t) Settings.TrayOnly = t;
         if (schedule != null)
         {
             bool wasOn;
